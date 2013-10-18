@@ -4,15 +4,14 @@
 // @version 2.0
 //
 #import "KakaoLinkCenter.h"
-#import "JSONKit.h"
 
 static NSString *StringByAddingPercentEscapesForURLArgument(NSString *string) {
-	NSString *escapedString = (NSString *)CFURLCreateStringByAddingPercentEscapes(kCFAllocatorDefault,
+	NSString *escapedString = (NSString *)CFBridgingRelease(CFURLCreateStringByAddingPercentEscapes(kCFAllocatorDefault,
 																				  (CFStringRef)string,
 																				  NULL,
 																				  (CFStringRef)@"!*'();:@&=+$,/?%#[]",
-																				  kCFStringEncodingUTF8);
-	return [escapedString autorelease];
+																				  kCFStringEncodingUTF8));
+	return escapedString;
 }
 
 static NSString *HTTPArgumentsStringForParameters(NSDictionary *parameters) {
@@ -104,8 +103,10 @@ static NSString *const StoryLinkURLBaseString = @"storylink://posting";
 	if (!avalibleAppLink)
 		return NO;
     
-    NSString *appDataString = [[NSDictionary dictionaryWithObject:metaInfoArray forKey:@"metainfo"] JSONString];
-    if ( appDataString == nil )
+    NSError *error;
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:[NSDictionary dictionaryWithObject:metaInfoArray forKey:@"metainfo"] options:0 error:&error];
+    NSString *appDataString = [[NSString alloc]initWithData:jsonData encoding:NSUTF8StringEncoding];
+    if ( appDataString == nil || error )
         return NO;
     
 	NSMutableDictionary *parameters = [NSMutableDictionary dictionaryWithObjectsAndKeys:
@@ -143,10 +144,15 @@ static NSString *const StoryLinkURLBaseString = @"storylink://posting";
 									   nil];
 	
 	if (urlInfoDict.count > 0) {
-		[parameters setObject:[urlInfoDict JSONString] forKey:@"urlinfo"];
+        NSError *error;
+        NSData *jsonData = [NSJSONSerialization dataWithJSONObject:urlInfoDict options:0 error:&error];
+		[parameters setObject:jsonData forKey:@"urlinfo"];
+        if (error)
+            return NO;
 	}
 	
 	return [self openStoryLinkWithParams:parameters];
 }
 
 @end
+
